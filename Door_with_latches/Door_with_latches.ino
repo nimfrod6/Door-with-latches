@@ -38,11 +38,13 @@ bool _unlockFlag = 0;
 /******* END_GLOBAL_VARIABLES *****************/
 /******* USED_PINS ****************************/
 int _latchGatePin = 12;
+int _insideSwitchPin = 11;
 /******* END_USED_PINS ************************/
 /******* SETUP() ******************************/
 void setup() {
   pinMode( _latchGatePin, OUTPUT );
   digitalWrite( _latchGatePin, 0 );
+  pinMode( _insideSwitchPin, INPUT );
   Serial.begin(9600);
 }
 /******* END_SETUP() **************************/
@@ -83,6 +85,12 @@ void loop() {
       break;
     }
   }
+  if( digitalRead(_insideSwitchPin) )
+  {
+    _unlockFlag = 1;
+  }
+  digitalWrite(_latchGatePin, UnlockLatches());
+  digitalWrite( 13, _lockStatus);
   if( Serial )
   {
     debug();
@@ -121,7 +129,7 @@ void ResetCode()
   _enteredCodePosition = 0;
 }
 
-void UnlockLatches() // left off here
+bool UnlockLatches() // function for unlocking the latches and checking that power limit is not exceeded
 {
   static double long startTime = 0;
   
@@ -130,11 +138,8 @@ void UnlockLatches() // left off here
     startTime = millis();
     _unlockFlag = 0;
   }
-  else
-  {
-    bool timeCondition = millis() - startTime < UNLOCK_ON_TIME;
-    digitalWrite( _latchGatePin, PowerLimit(timeCondition));
-  }
+  bool timeCondition = (millis() - startTime) < UNLOCK_ON_TIME;
+  return PowerLimit(timeCondition);
 }
 
 bool PowerLimit( bool condition)
@@ -144,7 +149,7 @@ bool PowerLimit( bool condition)
   double long deltaTime = millis() - lastCallTime;
   static bool onCooldown = 0;
 
-  if( condition )
+  if( condition && !onCooldown)
   {
     onTime += deltaTime;
   }
@@ -183,4 +188,9 @@ void debug()
   }
   Serial.print("\t");
   Serial.println("");
+}
+
+void LOG(String parameter, String parameterName)
+{
+  Serial.print(parameterName + "= " + parameter + "\t");
 }
