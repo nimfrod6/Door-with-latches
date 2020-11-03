@@ -28,9 +28,17 @@ char _passCode[] = {'1', '8', '0', '9'};
 char _enteredCode[4] = {0};
 
 int _enteredCodePosition = 0;
+
+bool _unlockFlag = 0;
+
 /******* END_GLOBAL_VARIABLES *****************/
+/******* USED_PINS ****************************/
+int _latchGatePin = A0;
+/******* END_USED_PINS ************************/
 /******* SETUP() ******************************/
 void setup() {
+  pinMode( _latchGatePin, OUTPUT );
+  digitalWrite( _latchGatePin, 0 );
   Serial.begin(9600);
 }
 /******* END_SETUP() **************************/
@@ -96,6 +104,7 @@ void CheckCode()
     }
   }
   attempts = 0;
+  _unlockFlag = 1;
   _lockStatus = UNLOCKED;
 }
 
@@ -106,6 +115,16 @@ void ResetCode()
     _enteredCode[i] = 0;
   }
   _enteredCodePosition = 0;
+}
+
+void UnlockLatches() // left off here
+{
+  static double long startTime = 0;
+  if( _unlockFlag == 1 )
+  {
+    startTime = millis();
+    _unlockFlag = 0;
+  }
 }
 
 void debug()
