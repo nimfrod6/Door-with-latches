@@ -24,6 +24,10 @@ Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, ROW_NUM, COLUMN_
 /******* GLOBAL_VARIABLES *********************/
 lockStatusType _lockStatus = LOCKED;
 
+const double long UNLOCK_ON_TIME = 3000;
+const double long UNLOCK_LATCHES_MAX_TIME = 10000;
+
+
 char _passCode[] = {'1', '8', '0', '9'};
 char _enteredCode[4] = {0};
 
@@ -33,7 +37,7 @@ bool _unlockFlag = 0;
 
 /******* END_GLOBAL_VARIABLES *****************/
 /******* USED_PINS ****************************/
-int _latchGatePin = A0;
+int _latchGatePin = 12;
 /******* END_USED_PINS ************************/
 /******* SETUP() ******************************/
 void setup() {
@@ -120,11 +124,53 @@ void ResetCode()
 void UnlockLatches() // left off here
 {
   static double long startTime = 0;
+  
   if( _unlockFlag == 1 )
   {
     startTime = millis();
     _unlockFlag = 0;
   }
+  else
+  {
+    bool timeCondition = millis() - startTime < UNLOCK_ON_TIME;
+    digitalWrite( _latchGatePin, PowerLimit(timeCondition));
+  }
+}
+
+bool PowerLimit( bool condition)
+{
+  static double long onTime = 0;
+  static double long lastCallTime = 0;
+  double long deltaTime = millis() - lastCallTime;
+  static bool onCooldown = 0;
+
+  if( condition )
+  {
+    onTime += deltaTime;
+  }
+  else
+  {
+    if( (2*deltaTime) <= onTime)
+    {
+      onTime -= (2*deltaTime);
+    }
+    else
+    {
+      onTime = 0;
+    }
+  }
+  
+  if( onTime > UNLOCK_LATCHES_MAX_TIME )
+  {
+    onCooldown = 1;
+  }
+  if( onTime == 0 )
+  {
+    onCooldown = 0;
+  }
+
+  lastCallTime = millis();
+  return (condition && !onCooldown);
 }
 
 void debug()
