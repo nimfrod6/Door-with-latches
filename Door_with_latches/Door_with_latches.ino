@@ -148,7 +148,7 @@ void ResetCode()
 
 bool UnlockLatches() // function for unlocking the latches and checking that power limit is not exceeded
 {
-  static unsigned long startTime = 0;
+  static unsigned long startTime = 100000;
   
   if( _unlockFlag == 1 )
   {
@@ -192,7 +192,9 @@ bool PowerLimit( bool condition)
   }
 
   lastCallTime = millis();
-  digitalWrite(_latchGatePin, (condition && !onCooldown));
+  bool stateToReturn = (condition && !onCooldown);
+  digitalWrite(_latchGatePin, stateToReturn);
+  return stateToReturn;
 }
 
 void AutoLock() // locks the door after certain time has passed
@@ -207,6 +209,7 @@ void AutoLock() // locks the door after certain time has passed
 void debug()
 {
   Serial.print("_lockStatus= " + String(_lockStatus) + "\t");
+  Serial.print("latches: " + String(UnlockLatches())+ "\t");
   Serial.print("_enteredCode[]= ");
   for( int i = 0; i < 4; i++)
   {
