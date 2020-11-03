@@ -24,8 +24,13 @@ Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, ROW_NUM, COLUMN_
 /******* GLOBAL_VARIABLES *********************/
 lockStatusType _lockStatus = LOCKED;
 
-const double long UNLOCK_ON_TIME = 3000;
-const double long UNLOCK_LATCHES_MAX_TIME = 10000;
+const unsigned long UNLOCK_ON_TIME = 3000;
+const unsigned long UNLOCK_LATCHES_MAX_TIME = 10000;
+const unsigned long AUTO_LOCK_TIME_RESET = 10000;      // resets unlock time back to 10 seconds
+const unsigned long AUTO_LOCK_TIME_INCREMENT = 300000; // prolongs unlock time by 5 minutes
+const unsigned long AUTO_LOCK_TIME_MAX = 7200000; // max 2 hours unlock time
+unsigned long AUTO_LOCK_TIME = 10000;
+unsigned long _lastUnlockTime = 0;
 
 
 char _passCode[] = {'1', '8', '0', '9'};
@@ -72,14 +77,24 @@ void loop() {
       switch(key)
       {
         case 'A':
+        _unlockFlag = 1;
         break;
         case 'B':
         break;
         case 'C':
         _lockStatus = LOCKED;
+        AUTO_LOCK_TIME = AUTO_LOCK_TIME_RESET;
         ResetCode();
         break;
         case 'D':
+        if( AUTO_LOCK_TIME < AUTO_LOCK_TIME_MAX )
+        {
+          AUTO_LOCK_TIME += AUTO_LOCK_TIME_INCREMENT;
+          if( AUTO_LOCK_TIME > AUTO_LOCK_TIME_MAX )
+          {
+            AUTO_LOCK_TIME = AUTO_LOCK_TIME_MAX;
+          }
+        }        
         break;
       }
       break;
@@ -89,8 +104,9 @@ void loop() {
   {
     _unlockFlag = 1;
   }
-  digitalWrite(_latchGatePin, UnlockLatches());
+  UnlockLatches();
   digitalWrite( 13, _lockStatus);
+  AutoLock();
   if( Serial )
   {
     debug();
@@ -117,6 +133,7 @@ void CheckCode()
   }
   attempts = 0;
   _unlockFlag = 1;
+  _lastUnlockTime = millis();
   _lockStatus = UNLOCKED;
 }
 
@@ -131,7 +148,7 @@ void ResetCode()
 
 bool UnlockLatches() // function for unlocking the latches and checking that power limit is not exceeded
 {
-  static double long startTime = 0;
+  static unsigned long startTime = 0;
   
   if( _unlockFlag == 1 )
   {
@@ -144,9 +161,9 @@ bool UnlockLatches() // function for unlocking the latches and checking that pow
 
 bool PowerLimit( bool condition)
 {
-  static double long onTime = 0;
-  static double long lastCallTime = 0;
-  double long deltaTime = millis() - lastCallTime;
+  static unsigned long onTime = 0;
+  static unsigned long lastCallTime = 0;
+  unsigned long deltaTime = millis() - lastCallTime;
   static bool onCooldown = 0;
 
   if( condition && !onCooldown)
@@ -175,7 +192,16 @@ bool PowerLimit( bool condition)
   }
 
   lastCallTime = millis();
-  return (condition && !onCooldown);
+  digitalWrite(_latchGatePin, (condition && !onCooldown));
+}
+
+void AutoLock() // locks the door after certain time has passed
+{
+  if( millis() - _lastUnlockTime > AUTO_LOCK_TIME )
+  {
+    _lockStatus = LOCKED;
+    AUTO_LOCK_TIME = AUTO_LOCK_TIME_RESET;
+  }
 }
 
 void debug()
@@ -187,6 +213,8 @@ void debug()
     Serial.print(String(_enteredCode[i]));
   }
   Serial.print("\t");
+  unsigned long remainingTime = ((millis() - _lastUnlockTime) > AUTO_LOCK_TIME)? 0 : (AUTO_LOCK_TIME - (millis() - _lastUnlockTime));
+  Serial.print("timeToLock: " + String(remainingTime) + "\t");
   Serial.println("");
 }
 
