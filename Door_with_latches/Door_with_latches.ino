@@ -46,6 +46,7 @@ int remainingTime[3] = {0, 0, 0}; //hh mm ss
 int _enteredCodePosition = 0;
 
 bool _unlockFlag = 0;
+bool _lcdWrongCode = 0;
 
 /******* END_GLOBAL_VARIABLES *****************/
 /******* USED_PINS ****************************/
@@ -90,8 +91,21 @@ void loop() {
           _enteredCodePosition = 0;
           CheckCode();
         }
+        break;
       }
+      switch(key)
+      {
+        case 'A':
+        break;
+        case 'B':
+        ResetCode();
+        break;
+        case 'C':
+        break;
+        case 'D':       
+        break;
       break;
+      }
     }
     case UNLOCKED:
     {
@@ -167,6 +181,7 @@ void CheckCode()
       {
         delay( 1000*attempts ); // progressively delay if attempts fail
       }
+      _lcdWrongCode = 1;
       return;
     }
   }
@@ -285,12 +300,27 @@ void printLCD()
       lcd.print("-----ZAKLENJENO-----");
       lcd.setCursor(0,3);
       lcd.print("Geslo:              ");
-      lcd.setCursor(7,3);
     }
-    if(_enteredCodePositionPrev != _enteredCodePosition )
+    if( _lcdWrongCode )
     {
-      lcd.print("*");
+      _lcdWrongCode = 0;
+      lcd.setCursor(0,3);
+      lcd.print("Geslo:              ");
     }
+    lcd.setCursor(7,3);
+    for( int i = 0; i < 4; i++)
+    {
+      if( _enteredCodePosition > i) 
+      {
+        lcd.print("*");
+      }
+      else
+      {
+        lcd.print(" ");
+      }
+      
+    }
+
   }
   else
   {
@@ -338,8 +368,6 @@ void printLCD()
     lcd.backlight();
     lcd.display();
   }
-
-  _enteredCodePositionPrev = _enteredCodePosition;
   _lockStatusToggle = _lockStatus; 
   
 }
