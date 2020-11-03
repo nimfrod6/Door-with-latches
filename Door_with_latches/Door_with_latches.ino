@@ -1,6 +1,7 @@
 #include "LiquidCrystal_I2C.h"
 #include "Keypad.h"
 #include "Wire.h"
+#include "CapacitiveSensor.h"
 
 typedef enum{
   LOCKED = 0,
@@ -50,12 +51,13 @@ bool _unlockFlag = 0;
 /******* USED_PINS ****************************/
 int _latchGatePin = 12;
 int _insideSwitchPin = 11;
+CapacitiveSensor   _insideSwitchSensor = CapacitiveSensor(10,_insideSwitchPin);
 /******* END_USED_PINS ************************/
 /******* SETUP() ******************************/
 void setup() {
   pinMode( _latchGatePin, OUTPUT );
   digitalWrite( _latchGatePin, 0 );
-  pinMode( _insideSwitchPin, INPUT );
+  _insideSwitchSensor.set_CS_AutocaL_Millis(0xFFFFFFFF);
   Serial.begin(9600);
   Wire.begin();
   lcd.init();
@@ -119,10 +121,27 @@ void loop() {
       break;
     }
   }
-  if( digitalRead(_insideSwitchPin) )
+  
+  static unsigned long ISSonTime = 0;
+  static unsigned long ISSoffTime = 0;
+  if( _insideSwitchSensor.capacitiveSensor(30) > 60 )
   {
-    _unlockFlag = 1;
+    if( millis() - ISSonTime > 250 )
+    {
+      _unlockFlag = 1;
+    }
+    if( ISSonTime - ISSoffTime < 200 )
+    {
+      _lockStatus = LOCKED;
+    }
+    ISSoffTime = millis();
   }
+  else
+  {
+    ISSonTime = millis();
+  }
+  
+  
   UnlockLatches();
   digitalWrite( 13, _lockStatus);
   AutoLock();
