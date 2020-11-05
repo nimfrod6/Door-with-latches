@@ -63,7 +63,6 @@ bool _lcdWrongCode = 0;
 int _latchGatePin = 12;     // pin for gate of MOSFET transistor for latches
 int _insideSwitchPin = 11;  // pin for handle capacitance
 int _closedDoorSensor = A0; // switch for monitoring if the doors are closed, 0 for CLOSED
-int _lockControlPin = A1;   // pin used for checking if the doors are actually locked
 int SCA_PIN = A4;
 int SCL_PIN = A5;
 CapacitiveSensor   _insideSwitchSensor = CapacitiveSensor(10,_insideSwitchPin);
@@ -73,7 +72,6 @@ void setup() {
   pinMode( _latchGatePin, OUTPUT );
   digitalWrite( _latchGatePin, 0 );
   pinMode( _closedDoorSensor, INPUT_PULLUP );
-  pinMode( _lockControlPin, INPUT_PULLUP );
   _insideSwitchSensor.set_CS_AutocaL_Millis(0xFFFFFFFF);
   Serial.begin(9600);
   Wire.begin();
@@ -128,9 +126,11 @@ void loop() {
         break;
         case 'B':
         _numOfBpresses++;
-        if(_numOfBpresses > 5)
+        if(_numOfBpresses > 4)
         {
+          _numOfBpresses = 0;
           _changeCodeFlag = 1;
+          _menuType = CODE_CHANGE_MENU;
         }
         break;
         break;
@@ -180,7 +180,7 @@ void loop() {
   
   
   UnlockLatches();
-  bool lockCheck = !digitalRead( _lockControlPin ); // 0 when switch closed, 1 when opened
+  bool lockCheck = !digitalRead( _closedDoorSensor ); // 0 when switch closed, 1 when opened
   digitalWrite( 13, _lockStatus && lockCheck);
   AutoLock();
   printLCD(_menuTypePtr);
@@ -365,6 +365,61 @@ void printLCD(menuType* menu)
     break;
     case CODE_CHANGE_MENU:
     LOG("", "LCDchangeMenu");
+    int changeCodePos = 0;
+    int changeCodeCorr = 0;
+    char tempCode[4] = {0};
+    while(_changeCodeFlag)
+    {
+      char changeCodeKey =  keypad.getKey();
+      if( isDigit(changeCodeKey))
+      {
+        tempCode[changeCodePos++] = changeCodeKey;
+        if( (changeCodePos >= 4) && (changeCodeCorr == 0))
+        {
+          for( int i = 0; i < 4; i++)
+          {
+            if( tempCode[i] != _passCode[i] )
+            {
+              _menuType = LOCKED_MENU;
+              _lockStatus = LOCKED;
+              return;
+            }
+          }
+          changeCodePos = 0;
+          changeCodeCorr = 1; // old pass was successfully entered
+          tempCode[0],tempCode[1],tempCode[2],tempCode[3] = 0;
+        }
+        else if ( changeCodeCorr )
+        {
+          if( (changeCodePos >= 4) && (changeCodeCorr == 1))
+          {
+            for( int i = 0; i < 4; i++)
+            {
+              _passCode[i] = tempCode[i];
+              _changeCodeFlag = 0;
+              _menuType = UNLOCKED_MENU;
+              _lockStatus = UNLOCKED;
+            }
+          }
+        }
+      }
+      toPrintLCD[0] = "  SPREMEMBA GESLA   ";
+      toPrintLCD[1] = "....................";
+      toPrintLCD[2] = changeCodeCorr ? "Vnesi novo geslo    " : "Vnesi staro geslo   ";
+      toPrintLCD[3] = "Geslo: ";
+      for( int i = 0; i < 13; i++)
+      {
+        if( i < changeCodePos )
+        {
+          toPrintLCD[3] += "*";
+        }
+        else
+        {
+          toPrintLCD[3] += " ";
+        }
+      }
+      printToLCD(toPrintLCD);
+    }
     break;
     default:
     LOG("", "LCDdefault");
@@ -380,6 +435,17 @@ void printToLCD(String toPrintLCD[4])
     lcd.setCursor(0,i);
     lcd.print(toPrintLCD[i]);
   }
+  if( millis() - _lastKeyPressTime > AUTO_DISPLAY_OFF_TIME)
+  {
+    lcd.noDisplay();
+    lcd.noBacklight();
+  }
+  else
+  {
+    lcd.display();
+    lcd.backlight();
+  }
+  
 }
 
 void RemainingTime(unsigned long millis)
