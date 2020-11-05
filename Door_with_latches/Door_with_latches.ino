@@ -317,69 +317,68 @@ void LOG(String parameter, String parameterName)
 
 void printLCD(menuType* menu)
 {
-  LOG(String(*menu), "Menu: ");
-  char toPrintLCD[4*20] = {"LCD error"};
+  String toPrintLCD[4] = {"LCD error, nothing  ","to display"};
+
   switch( *menu )
   {
     case LOCKED_MENU:
-    LOG("", "locked");
-    char lockedRow0[]= "  VHOD V REZIDENCO  ";
-    char lockedRow1[]= "-----ZAKLENJENO-----";
-    char lockedRow2[]= "                    ";
-    char lockedRow3[]= "Geslo:              ";
-    addToLCDtext(0, &toPrintLCD[0], &lockedRow0[0]);
-    addToLCDtext(1, &toPrintLCD[0], &lockedRow1[0]);
-    addToLCDtext(2, &toPrintLCD[0], &lockedRow2[0]);
-    addToLCDtext(3, &toPrintLCD[0], &lockedRow3[0]);
+    LOG("", "LCDlocked");
+    toPrintLCD[0] = "  VHOD V REZIDENCO  ";
+    toPrintLCD[1] = "-----ZAKLENJENO-----";
+    toPrintLCD[2] = "                    ";
+    toPrintLCD[3] = "Geslo: ";
+    for( int i = 0; i < 13; i++)
+    {
+      if( i < _enteredCodePosition )
+      {
+        toPrintLCD[3] += "*";
+      }
+      else
+      {
+        toPrintLCD[3] += " ";
+      }
+    }    
     break;
     case UNLOCKED_MENU:
-    LOG("", "unlocked");
-    char unlockedRow0[]= "  VHOD V REZIDENCO  ";
-    char unlockedRow1[]= "     ODKLENJENO     ";
-    char unlockedRow2[]= "                    ";
-    RemainingTime(AutoLock());
-    //char unlockedRow3[]= "                    ";
-    String unlockedRow3 = "Zaklep cez ";
-    String tempRow3 = remainingTime[0] ? (String(remainingTime[0]) + "h") : ("");
-    tempRow3 += remainingTime[1] ? (String(remainingTime[1]) + "m") : ("");
-    tempRow3 += remainingTime[2] ? (String(remainingTime[2]) + "s") : ("0s");
-    while( tempRow3.length() < 20 )
+    LOG("", "LCDunlocked");
+    toPrintLCD[0] = "  VHOD V REZIDENCO  ";
+    toPrintLCD[1] = "     ODKLENJENO     ";
+    toPrintLCD[2] = "                    ";
+    if( millis() - _lastUnlockTime < 1300 )
     {
-      tempRow3 = " " + tempRow3;
+      toPrintLCD[3] = "Geslo: ****         ";
     }
-    unlockedRow3 += tempRow3;
-    addToLCDtext(0, &toPrintLCD[0], &unlockedRow0[0]);
-    addToLCDtext(1, &toPrintLCD[0], &unlockedRow1[0]);
-    addToLCDtext(2, &toPrintLCD[0], &unlockedRow2[0]);
-    addToLCDtext(3, &toPrintLCD[0], &unlockedRow3[0]);
+    else
+    {
+      RemainingTime(AutoLock());
+      String toPrint;
+      toPrint = remainingTime[0] ? (String(remainingTime[0]) + "h") : ("");
+      toPrint += remainingTime[1] ? (String(remainingTime[1]) + "m") : ("");
+      toPrint += remainingTime[2] ? (String(remainingTime[2]) + "s") : ("0s");
+      while( toPrint.length() < 8)
+      {
+        toPrint = " " + toPrint;
+      }
+      toPrintLCD[3] = "Zaklep cez " + toPrint;
+    }
+    
     break;
     case CODE_CHANGE_MENU:
-    LOG("", "changeMenu");
+    LOG("", "LCDchangeMenu");
     break;
     default:
-    LOG("", "default");
+    LOG("", "LCDdefault");
     break;
   }
   printToLCD(toPrintLCD);
 }
 
-void addToLCDtext( int line, char* toPrintArray, char* inputArray )
+void printToLCD(String toPrintLCD[4])
 {
-  for( int i = 0; i < 20; i++)
-  {
-    *(toPrintArray + i + line*20) = *(inputArray + i);
-  }
-}
-
-void printToLCD(char LCDarray[4*20])
-{
-  for( int i = 0; i < 4; i++)
+  for(int i = 0; i < 4; i++)
   {
     lcd.setCursor(0,i);
-    for( int j = 0; j < (20); j++)
-    {
-      lcd.print(LCDarray[j+(20*i)]);
-    }
+    lcd.print(toPrintLCD[i]);
   }
 }
 
