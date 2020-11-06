@@ -36,7 +36,9 @@ lockStatusType _lockStatus = LOCKED;
 menuType _menuType = LOCKED_MENU;
 menuType* _menuTypePtr = &_menuType;
 
-const unsigned long UNLOCK_ON_TIME = 3000;
+unsigned long UNLOCK_ON_TIME = 3000;
+const unsigned long UNLOCK_ON_TIME_KEYPAD = 800;
+const unsigned long UNLOCK_ON_TIME_INSIDE_SWITCH = 300;
 const unsigned long UNLOCK_LATCHES_MAX_TIME = 10000;
 const unsigned long AUTO_LOCK_TIME_RESET = 10000;      // resets unlock time back to 10 seconds
 const unsigned long AUTO_LOCK_TIME_INCREMENT = 300000; // prolongs unlock time by 5 minutes
@@ -122,6 +124,7 @@ void loop() {
       switch(key)
       {
         case 'A':
+        UNLOCK_ON_TIME = UNLOCK_ON_TIME_KEYPAD;
         _unlockFlag = 1;
         break;
         case 'B':
@@ -159,13 +162,19 @@ void loop() {
   
   static unsigned long ISSonTime = 0;
   static unsigned long ISSoffTime = 0;
+  static bool signaled = 0;
   if( _insideSwitchSensor.capacitiveSensor(30) > 60 )
   {
     if( millis() - ISSonTime > 250 )
     {
-      _unlockFlag = 1;
+      if( signaled == 0 )
+      {
+        signaled = 1;
+        _unlockFlag = 1;
+        UNLOCK_ON_TIME = UNLOCK_ON_TIME_INSIDE_SWITCH;
+      }
     }
-    if( ISSonTime - ISSoffTime < 200 )
+    if( ISSonTime - ISSoffTime < 500 )
     {
       _lockStatus = LOCKED;
       ResetCode();
@@ -175,6 +184,7 @@ void loop() {
   }
   else
   {
+    signaled = 0;
     ISSonTime = millis();
   }
   
@@ -212,6 +222,7 @@ void CheckCode()
   attempts = 0;
   _unlockFlag = 1;
   _lastUnlockTime = millis();
+  UNLOCK_ON_TIME = UNLOCK_ON_TIME_KEYPAD;
   _lockStatus = UNLOCKED;
   _menuType = UNLOCKED_MENU;
 }
@@ -291,6 +302,11 @@ unsigned long AutoLock() // locks the door after certain time has passed
 
 void debug()
 {
+  static bool enabled = 0;
+  char readChar = Serial.read();
+  if( readChar == 'y' ) enabled = 1;
+  else if( readChar == 'n' ) enabled = 0;
+  if( !enabled ) return;
   Serial.print("_lockStatus= " + String(_lockStatus) + "\t");
   Serial.print("latches: " + String(UnlockLatches())+ "\t");
   Serial.print("_enteredCode[]= ");
@@ -322,7 +338,6 @@ void printLCD(menuType* menu)
   switch( *menu )
   {
     case LOCKED_MENU:
-    LOG("", "LCDlocked");
     toPrintLCD[0] = "  VHOD V REZIDENCO  ";
     toPrintLCD[1] = "-----ZAKLENJENO-----";
     toPrintLCD[2] = "                    ";
@@ -340,7 +355,6 @@ void printLCD(menuType* menu)
     }    
     break;
     case UNLOCKED_MENU:
-    LOG("", "LCDunlocked");
     toPrintLCD[0] = "  VHOD V REZIDENCO  ";
     toPrintLCD[1] = "     ODKLENJENO     ";
     toPrintLCD[2] = "                    ";
@@ -364,7 +378,6 @@ void printLCD(menuType* menu)
     
     break;
     case CODE_CHANGE_MENU:
-    LOG("", "LCDchangeMenu");
     int changeCodePos = 0;
     int changeCodeCorr = 0;
     char tempCode[4] = {0};
@@ -396,6 +409,7 @@ void printLCD(menuType* menu)
             for( int i = 0; i < 4; i++)
             {
               _passCode[i] = tempCode[i];
+              putCodeToEEPROM(tempCode);
               _changeCodeFlag = 0;
               _menuType = UNLOCKED_MENU;
               _lockStatus = UNLOCKED;
@@ -470,7 +484,10 @@ void setCodeFromEEPROM()
   }
 }
 
-void putCodeToEEPROM()
+void putCodeToEEPROM(char codeToSave[])
 {
-  
+  for( int i = 0; i < 4; i++ )
+  {
+    EEPROM.put(i, codeToSave[i]);
+  }
 }
