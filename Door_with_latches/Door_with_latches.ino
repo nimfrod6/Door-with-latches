@@ -1,7 +1,6 @@
 #include "LiquidCrystal_I2C.h"
 #include "Keypad.h"
 #include "Wire.h"
-#include "CapacitiveSensor.h"
 #include <EEPROM.h>
 
 typedef enum{
@@ -37,8 +36,8 @@ menuType _menuType = LOCKED_MENU;
 menuType* _menuTypePtr = &_menuType;
 
 unsigned long UNLOCK_ON_TIME = 3000;
-const unsigned long UNLOCK_ON_TIME_KEYPAD = 800;
-const unsigned long UNLOCK_ON_TIME_INSIDE_SWITCH = 300;
+const unsigned long UNLOCK_ON_TIME_KEYPAD = 3000;
+const unsigned long UNLOCK_ON_TIME_INSIDE_SWITCH = 3000;
 const unsigned long UNLOCK_LATCHES_MAX_TIME = 10000;
 const unsigned long AUTO_LOCK_TIME_RESET = 10000;      // resets unlock time back to 10 seconds
 const unsigned long AUTO_LOCK_TIME_INCREMENT = 300000; // prolongs unlock time by 5 minutes
@@ -62,24 +61,31 @@ bool _lcdWrongCode = 0;
 
 /******* END_GLOBAL_VARIABLES *****************/
 /******* USED_PINS ****************************/
-int _latchGatePin = 12;     // pin for gate of MOSFET transistor for latches
+int _latchGatePin = A2;     // pin for gate of MOSFET transistor for latches
 int _insideSwitchPin = 11;  // pin for handle capacitance
 int _closedDoorSensor = A0; // switch for monitoring if the doors are closed, 0 for CLOSED
 int SCA_PIN = A4;
 int SCL_PIN = A5;
-CapacitiveSensor   _insideSwitchSensor = CapacitiveSensor(10,_insideSwitchPin);
 /******* END_USED_PINS ************************/
 /******* SETUP() ******************************/
 void setup() {
+  Serial.begin(9600);
+  Serial.println("Serial begin OK");
   pinMode( _latchGatePin, OUTPUT );
   digitalWrite( _latchGatePin, 0 );
+  pinMode( _insideSwitchPin, INPUT_PULLUP);
   pinMode( _closedDoorSensor, INPUT_PULLUP );
-  _insideSwitchSensor.set_CS_AutocaL_Millis(0xFFFFFFFF);
-  Serial.begin(9600);
+  Serial.println("Starting capacitive sensor");
+  Serial.println("Starting Wire");
   Wire.begin();
+  Serial.println("Starting LCD");
   lcd.init();
   lcd.backlight();
+  Serial.println("Seting code from EEPROM");
   setCodeFromEEPROM();
+  Serial.println("To start debugging send 'y'");
+  Serial.println("To stop debugging send 'n'");
+  Serial.println("Starting loop()");
 }
 /******* END_SETUP() **************************/
 /******* MAIN() *******************************/
@@ -91,7 +97,6 @@ void loop() {
   }
   switch(_lockStatus)
   {
-    
     case LOCKED:
     {
       if( isDigit(key))
@@ -117,6 +122,7 @@ void loop() {
         break;
       }
       _numOfBpresses = 0;
+      break;
     }
     case UNLOCKED:
     {
@@ -163,7 +169,7 @@ void loop() {
   static unsigned long ISSonTime = 0;
   static unsigned long ISSoffTime = 0;
   static bool signaled = 0;
-  if( _insideSwitchSensor.capacitiveSensor(30) > 60 )
+  if( !digitalRead(_insideSwitchPin) )
   {
     if( millis() - ISSonTime > 250 )
     {
@@ -177,6 +183,7 @@ void loop() {
     if( ISSonTime - ISSoffTime < 500 )
     {
       _lockStatus = LOCKED;
+      _menuType = LOCKED_MENU;
       ResetCode();
       AUTO_LOCK_TIME = AUTO_LOCK_TIME_RESET;
     }
@@ -190,8 +197,9 @@ void loop() {
   
   
   UnlockLatches();
-  bool lockCheck = !digitalRead( _closedDoorSensor ); // 0 when switch closed, 1 when opened
-  digitalWrite( 13, _lockStatus && lockCheck);
+  bool lockCheck = digitalRead( _closedDoorSensor ); // 0 when switch closed, 1 when opened
+  digitalWrite( 13, (_lockStatus == UNLOCKED ) || lockCheck);
+  // HIGH unlocked green LED, LOW locked RED
   AutoLock();
   printLCD(_menuTypePtr);
   if( Serial )
@@ -246,8 +254,9 @@ bool UnlockLatches() // function for unlocking the latches and checking that pow
     _unlockFlag = 0;
   }
   bool timeCondition = (millis() - startTime) < UNLOCK_ON_TIME;
-  bool doorState = !digitalRead( _closedDoorSensor );
-  return PowerLimit(timeCondition && doorState);
+  bool doorState = !digitalRead( _closedDoorSensor ); // digitalRead returns 0 on closed doors, 1 on opened
+  bool intoPowerLimit = timeCondition && doorState;
+  return PowerLimit(intoPowerLimit);
 }
 
 bool PowerLimit( bool condition)
@@ -306,6 +315,13 @@ void debug()
   char readChar = Serial.read();
   if( readChar == 'y' ) enabled = 1;
   else if( readChar == 'n' ) enabled = 0;
+  else if( readChar == 'k') 
+  {
+    Serial.println("\nUnlocking with Serial");
+    digitalWrite(_latchGatePin, HIGH);
+    delay(1000);
+    digitalWrite(_latchGatePin, LOW);
+  }
   if( !enabled ) return;
   Serial.print("_lockStatus= " + String(_lockStatus) + "\t");
   Serial.print("latches: " + String(UnlockLatches())+ "\t");
@@ -384,6 +400,11 @@ void printLCD(menuType* menu)
     while(_changeCodeFlag)
     {
       char changeCodeKey =  keypad.getKey();
+      if( changeCodeKey == 'C' ) // cancel changing of code
+      {
+        _changeCodeFlag = 0;
+        return;
+      }
       if( isDigit(changeCodeKey))
       {
         tempCode[changeCodePos++] = changeCodeKey;
