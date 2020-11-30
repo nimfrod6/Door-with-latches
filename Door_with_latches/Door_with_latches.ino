@@ -43,9 +43,15 @@ const unsigned long AUTO_LOCK_TIME_RESET = 10000;      // resets unlock time bac
 const unsigned long AUTO_LOCK_TIME_INCREMENT = 300000; // prolongs unlock time by 5 minutes
 const unsigned long AUTO_LOCK_TIME_MAX = 7200000; // max 2 hours unlock time
 const unsigned long AUTO_DISPLAY_OFF_TIME = 60000;
+const unsigned long BUZZER_KEYPAD_TIME = 300;
+const unsigned long BUZZER_LATCHES_ON_TIME = 30;
+const unsigned int BUZZER_KEYPAD_FREQUENCY = 941;
+const unsigned int BUZZER_LATCHES_ON_FREQUENCY = 200;
 unsigned long AUTO_LOCK_TIME = 10000;
 unsigned long _lastUnlockTime = 0;
 unsigned long _lastKeyPressTime = 0;
+
+#define NOTE_C4 262
 
 char _passCode[] = {'1', '8', '0', '9'};
 char _enteredCode[4] = {0};
@@ -63,6 +69,7 @@ bool _lcdWrongCode = 0;
 /******* USED_PINS ****************************/
 int _latchGatePin = A2;     // pin for gate of MOSFET transistor for latches
 int _insideSwitchPin = 11;  // pin for handle capacitance
+int _buzzerPin = 12;        // pin for buzzer
 int _closedDoorSensor = A0; // switch for monitoring if the doors are closed, 0 for CLOSED
 int SCA_PIN = A4;
 int SCL_PIN = A5;
@@ -93,6 +100,7 @@ void loop() {
   char key = keypad.getKey();
   if( key )
   {
+    tone(_buzzerPin, BUZZER_KEYPAD_FREQUENCY, BUZZER_KEYPAD_TIME);
     _lastKeyPressTime = millis();
   }
   switch(_lockStatus)
@@ -171,7 +179,7 @@ void loop() {
   static bool signaled = 0;
   if( !digitalRead(_insideSwitchPin) )
   {
-    if( millis() - ISSonTime > 250 )
+    if( millis() - ISSonTime > 100 )
     {
       if( signaled == 0 )
       {
@@ -293,6 +301,10 @@ bool PowerLimit( bool condition)
 
   lastCallTime = millis();
   bool stateToReturn = (condition && !onCooldown);
+  if( stateToReturn )
+  {
+    tone(_buzzerPin, BUZZER_LATCHES_ON_FREQUENCY, BUZZER_LATCHES_ON_TIME);
+  }
   digitalWrite(_latchGatePin, stateToReturn);
   return stateToReturn;
 }
@@ -400,6 +412,10 @@ void printLCD(menuType* menu)
     while(_changeCodeFlag)
     {
       char changeCodeKey =  keypad.getKey();
+      if( changeCodeKey )
+      {
+        tone(_buzzerPin, NOTE_C4, BUZZER_KEYPAD_TIME);
+      }
       if( changeCodeKey == 'C' ) // cancel changing of code
       {
         _changeCodeFlag = 0;
