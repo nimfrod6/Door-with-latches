@@ -43,7 +43,7 @@ const unsigned long AUTO_LOCK_TIME_RESET = 10000;      // resets unlock time bac
 const unsigned long AUTO_LOCK_TIME_INCREMENT = 300000; // prolongs unlock time by 5 minutes
 const unsigned long AUTO_LOCK_TIME_MAX = 7200000; // max 2 hours unlock time
 const unsigned long AUTO_DISPLAY_OFF_TIME = 60000;
-const unsigned long BUZZER_KEYPAD_TIME = 300;
+const unsigned long BUZZER_KEYPAD_TIME = 120;
 const unsigned long BUZZER_LATCHES_ON_TIME = 30;
 const unsigned int BUZZER_KEYPAD_FREQUENCY = 941;
 const unsigned int BUZZER_LATCHES_ON_FREQUENCY = 200;
@@ -263,7 +263,7 @@ bool UnlockLatches() // function for unlocking the latches and checking that pow
   }
   bool timeCondition = (millis() - startTime) < UNLOCK_ON_TIME;
   bool doorState = !digitalRead( _closedDoorSensor ); // digitalRead returns 0 on closed doors, 1 on opened
-  doorState = delayChange(doorState, 0, 500);
+  doorState = delayChange(doorState, 0, 300);
   bool intoPowerLimit = timeCondition && doorState;
   return PowerLimit(intoPowerLimit);
 }
@@ -555,8 +555,8 @@ bool delayChange(bool inputVar, unsigned long onPosDelay, unsigned long onNegDel
   {
     if (millis() - startTime > onPosDelay)
     {
-      return 1;
       delayPos = 0;
+      return 1;
     }
     return 0;
   }
@@ -564,8 +564,8 @@ bool delayChange(bool inputVar, unsigned long onPosDelay, unsigned long onNegDel
   {
     if (millis() - startTime > onNegDelay)
     {
-      return 0;
       delayNeg = 0;
+      return 0;
     }
     return 1;
   }
