@@ -42,6 +42,7 @@ const unsigned long UNLOCK_LATCHES_MAX_TIME = 10000;
 const unsigned long AUTO_LOCK_TIME_RESET = 10000;      // resets unlock time back to 10 seconds
 const unsigned long AUTO_LOCK_TIME_INCREMENT = 300000; // prolongs unlock time by 5 minutes
 const unsigned long AUTO_LOCK_TIME_MAX = 7200000; // max 2 hours unlock time
+const unsigned int AUTO_LOCK_TIME_CLEAN_INPUT = 60000; // clear code input after this time
 const unsigned long AUTO_DISPLAY_OFF_TIME = 60000;
 const unsigned long BUZZER_KEYPAD_TIME = 120;
 const unsigned long BUZZER_LATCHES_ON_TIME = 30;
@@ -318,6 +319,11 @@ unsigned long AutoLock() // locks the door after certain time has passed
     _lockStatus = LOCKED;
     _menuType = LOCKED_MENU;
     AUTO_LOCK_TIME = AUTO_LOCK_TIME_RESET;
+  }
+  bool timeCondi = (millis() - _lastKeyPressTime > AUTO_LOCK_TIME_CLEAN_INPUT);
+  if(timeCondi && (_lockStatus == LOCKED))
+  {
+    ResetCode();
   }
   return AUTO_LOCK_TIME - passedTime;
 }
