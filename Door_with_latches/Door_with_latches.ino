@@ -321,7 +321,9 @@ unsigned long AutoLock() // locks the door after certain time has passed
     AUTO_LOCK_TIME = AUTO_LOCK_TIME_RESET;
   }
   bool timeCondi = (millis() - _lastKeyPressTime > AUTO_LOCK_TIME_CLEAN_INPUT);
-  if(timeCondi && (_lockStatus == LOCKED))
+  bool lockCondi = (_lockStatus == LOCKED);
+  bool codeCondi = (bool) _enteredCodePosition;
+  if(timeCondi && lockCondi && codeCondi)
   {
     ResetCode();
   }
