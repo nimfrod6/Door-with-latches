@@ -263,6 +263,7 @@ bool UnlockLatches() // function for unlocking the latches and checking that pow
   }
   bool timeCondition = (millis() - startTime) < UNLOCK_ON_TIME;
   bool doorState = !digitalRead( _closedDoorSensor ); // digitalRead returns 0 on closed doors, 1 on opened
+  doorState = delayChange(doorState, 0, 500);
   bool intoPowerLimit = timeCondition && doorState;
   return PowerLimit(intoPowerLimit);
 }
@@ -527,4 +528,46 @@ void putCodeToEEPROM(char codeToSave[])
   {
     EEPROM.put(i, codeToSave[i]);
   }
+}
+
+bool delayChange(bool inputVar, unsigned long onPosDelay, unsigned long onNegDelay)
+{
+  static bool inputVarPrev = 0;
+  static bool delayPos = 0;
+  static bool delayNeg = 0;
+  static unsigned long startTime = 0;
+
+  if (inputVar != inputVarPrev)
+  {
+    if (inputVar == 1) // pos change
+    {
+      delayPos = 1;
+    }
+    else // neg change
+    {
+      delayNeg = 1;
+    }
+    startTime = millis();
+    inputVarPrev = inputVar;
+  }
+
+  if (delayPos)
+  {
+    if (millis() - startTime > onPosDelay)
+    {
+      return 1;
+      delayPos = 0;
+    }
+    return 0;
+  }
+  else if (delayNeg)
+  {
+    if (millis() - startTime > onNegDelay)
+    {
+      return 0;
+      delayNeg = 0;
+    }
+    return 1;
+  }
+  return inputVar;
 }
