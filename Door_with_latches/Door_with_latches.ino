@@ -14,6 +14,12 @@ typedef enum{
   CODE_CHANGE_MENU
 } menuType;
 
+typedef enum
+{
+  LCD_OFF = 0,
+  LCD_ON
+} lcdOnOffStatusType;
+
 /******* KEYPAD *******************************/
 const int ROW_NUM = 4; // four rows
 const int COLUMN_NUM = 4; // four columns
@@ -490,18 +496,31 @@ void printLCD(menuType* menu)
 
 void printToLCD(String toPrintLCD[4])
 {
+  static lcdOnOffStatusType lcdOnOffState = LCD_ON;
+  bool changedLines[4] = {0};
+  static String previousToPrintLCD[4] = {"","","",""}; // start with blank texts
+  for (int a = 0; a < 4; a++)
+  {
+    changedLines[a] = !(previousToPrintLCD[a] == toPrintLCD[a]); // if strings changed then == returns 0, which is negated to represent 1, as in changed
+    previousToPrintLCD[a] = toPrintLCD[a];
+  }
   for(int i = 0; i < 4; i++)
   {
-    lcd.setCursor(0,i);
-    lcd.print(toPrintLCD[i]);
+    if (changedLines[i] == 1) // only update if change was made to the line
+    {
+      lcd.setCursor(0,i);
+      lcd.print(toPrintLCD[i]);
+    }
   }
-  if( millis() - _lastKeyPressTime > AUTO_DISPLAY_OFF_TIME)
+  if((millis() - _lastKeyPressTime > AUTO_DISPLAY_OFF_TIME) && (lcdOnOffState == LCD_ON))
   {
+    lcdOnOffState = LCD_OFF;
     lcd.noDisplay();
     lcd.noBacklight();
   }
-  else
+  else if ((millis() - _lastKeyPressTime < 50) && (lcdOnOffState == LCD_OFF))
   {
+    lcdOnOffState = LCD_ON;
     lcd.display();
     lcd.backlight();
   }
